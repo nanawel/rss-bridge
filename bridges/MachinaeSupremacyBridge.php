@@ -12,8 +12,9 @@
 */
 class MachinaeSupremacyBridge extends BridgeAbstract
 {
+
     const BASE_URI = 'http://www.machinaesupremacy.com';
-    
+
     public function collectData(array $param)
     {
         $html = file_get_html(self::BASE_URI) or $this->returnError('Could not request MachinaeSupremacy.', 404);
@@ -21,12 +22,12 @@ class MachinaeSupremacyBridge extends BridgeAbstract
         $container = $html->find('div#masu', 0);
         
         // Fix links and images
-        foreach($container->find('a') as $linkTag) {
+        foreach ($container->find('a') as $linkTag) {
             if (strpos($linkTag->href, '/') === 0) {
                 $linkTag->href = self::BASE_URI . $linkTag->href;
             }
         }
-        foreach($container->find('img') as $imgTag) {
+        foreach ($container->find('img') as $imgTag) {
             if (strpos($imgTag->src, '/') === 0) {
                 $imgTag->src = self::BASE_URI . $imgTag->src;
             }
@@ -34,23 +35,23 @@ class MachinaeSupremacyBridge extends BridgeAbstract
         
         /* @var $container simple_html_dom_node */
         $item = new \Item();
-        foreach($container->children() as $child) {
-            switch($child->tag) {
-            	case 'h2':
-            	    $item->title = $child->plaintext;
-            	    $item->uri = $child->find('a', 0)->href;
-            	    $item->timestamp = time();
-            	    $item->content = '';
-            	    break;
-            	    
-        	    case 'p';
-        	       $item->content .= (string) $child;
-        	       break;
-        	    
-        	    case 'hr':
-        	        $this->items[] = $item;
-        	        $item = new \Item();
-        	        break;
+        foreach ($container->children() as $child) {
+            switch ($child->tag) {
+                case 'h2':
+                    $item->title = $child->plaintext;
+                    $item->uri = $child->find('a', 0)->href;
+                    $item->timestamp = strtotime($child->find('span', 0)->innertext);
+                    $item->content = '';
+                    break;
+                
+                case 'p':
+                    $item->content .= (string) $child;
+                    break;
+                
+                case 'hr':
+                    $this->items[] = $item;
+                    $item = new \Item();
+                    break;
             }
         }
     }
@@ -67,6 +68,6 @@ class MachinaeSupremacyBridge extends BridgeAbstract
 
     public function getCacheDuration()
     {
-        return 86400; // 1 day
+        return 43200; // 12h
     }
 }
