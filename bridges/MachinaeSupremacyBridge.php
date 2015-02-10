@@ -17,9 +17,10 @@ class MachinaeSupremacyBridge extends BridgeAbstract
 
     public function collectData(array $param)
     {
+        
         $html = file_get_html(self::BASE_URI) or $this->returnError('Could not request MachinaeSupremacy.', 404);
         
-        $container = $html->find('div#masu', 0);
+        $container = $html->find('div#posts', 0);
         
         // Fix links and images
         foreach ($container->find('a') as $linkTag) {
@@ -35,25 +36,72 @@ class MachinaeSupremacyBridge extends BridgeAbstract
         
         /* @var $container simple_html_dom_node */
         $item = new \Item();
-        foreach ($container->children() as $child) {
-            switch ($child->tag) {
-                case 'h2':
-                    $item->title = $child->plaintext;
-                    $item->uri = $child->find('a', 0)->href;
-                    $item->timestamp = strtotime($child->find('span', 0)->innertext);
-                    $item->content = '';
-                    break;
+        foreach ($container->find('article') as $child) {
+            $postMain = $child->find('section.postMain');
+            if (!empty($postMain)) {
+                $postMain = $postMain[0];
                 
-                case 'p':
-                    $item->content .= (string) $child;
-                    break;
+                // Title
+                $title = $postMain->find('h3 a');
+                if (!empty($title)) {
+                    $title = $title[0];
+                    $icon = $title->find('i');
+                    if (!empty($icon)) {
+                        $this->_removeNode($icon[0]);
+                    }
+                    $item->title = $this->_cleanup($title->innertext());
+                }
                 
-                case 'hr':
-                    $this->items[] = $item;
-                    $item = new \Item();
-                    break;
+                // URI
+                $permalink = $child->find('li.permalink a')[0];
+                $item->uri = $permalink->href;
+                
+                // TIMESTAMP
+                $icon = $permalink->find('i')[0];
+                $this->_removeNode($icon);
+                $item->timestamp = strtotime($permalink->innertext());
+                
+                // CONTENT
+                // Text
+                $content = $postMain->find('div.description');
+                if (!empty($content)) {
+                    $item->content = (string) $content[0];
+                }
+                else {
+                    // Image caption
+                    $content = $postMain->find('div.caption');
+                    if (!empty($content)) {
+                        $item->content = (string) $content[0];
+                    }
+                    else {
+                        // Tracklist
+                        $content = $postMain->find('ol.tracklist');
+                        if (!empty($content)) {
+                            $item->content = (string) $content[0];
+                        }
+                    }
+                }
+                
+                // TITLE (FALLBACK)
+                if (!isset($item->title)) {
+                    $item->title = mb_substr($this->_cleanup($content[0]->text()), 0, 60) . '...';
+                }
+                
+                $this->items[] = $item;
+                $item = new \Item();
             }
+            
         }
+    }
+    
+    protected function _removeNode($node)
+    {
+        $node->outertext = '';
+    }
+    
+    protected function _cleanup($str)
+    {
+        return trim(html_entity_decode($str));
     }
 
     public function getName()
